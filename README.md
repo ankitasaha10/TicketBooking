@@ -65,7 +65,7 @@
 
 # Booking Confirmation Email
 
-![image](https://user-images.githubusercontent.com/98727328/223663352-577e7994-acbb-4460-894f-55fcd16a1714.png)
+![image](https://i.imgur.com/mYAeWsy.png)
 
 
 
