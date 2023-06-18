@@ -1,7 +1,7 @@
 
-# ShowSnap
+# TicketBooking
 
-* ShowSnap is a movie ticket booking system project
+* TicketBooking is a movie ticket booking system project
 * Its a backend code written using Spring-Boot
 * It consists of Different Layers like Controller, Service, Repository , DTO(Data Transfer Object)
 * These layers in the project increases its code maintanablity, understadability and readablity
