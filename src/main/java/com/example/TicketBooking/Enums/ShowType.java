@@ -1,6 +1,8 @@
 package com.example.TicketBooking.Enums;
 
 public enum ShowType {
-    _2D,
-    _3D
+
+    _3D,_2D
+
+    //Because enums cant start with a number that why 2D and 3D not possible
 }

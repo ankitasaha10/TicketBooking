@@ -1,7 +1,9 @@
 package com.example.TicketBooking.Entities;
 
+
 import com.example.TicketBooking.Enums.ShowType;
 import jakarta.persistence.*;
+import jdk.jfr.Timestamp;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,22 +13,27 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "shows")
+@Table(name="shows")
 @Data
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 public class ShowEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    private LocalDate localDate;
-    private LocalTime localTime;
+    private LocalDate showDate;
+
+    private LocalTime showTime;
+
+
     @Enumerated(value = EnumType.STRING)
     private ShowType showType;
 
@@ -36,19 +43,24 @@ public class ShowEntity {
     @UpdateTimestamp
     private Date updatedOn;
 
+
+    //This is child wrt to the movieEntity
     @ManyToOne
     @JoinColumn
     private MovieEntity movieEntity;
 
+
     @ManyToOne
     @JoinColumn
-    private TheatreEntity theatreEntity;
+    private TheaterEntity theaterEntity;
 
-    @OneToMany(mappedBy = "showEntity", cascade = CascadeType.ALL)
-    List<TicketEntity> ticketEntityList;
+    //Show is parent wrt to ticket
+    @OneToMany(mappedBy = "showEntity",cascade = CascadeType.ALL)
+    private List<TicketEntity> listOfBookedTickets = new ArrayList<>();
 
-    private int seatPrice;
-    @OneToMany(mappedBy = "showEntity", cascade = CascadeType.ALL)
-    List<ShowSeatEntity> showSeatEntityList;
+    @OneToMany(mappedBy = "showEntity",cascade = CascadeType.ALL)
+    private List<ShowSeatEntity> listOfShowSeats = new ArrayList<>();
+
 
 }
+

@@ -1,76 +1,104 @@
 package com.example.TicketBooking.Service;
 
-import com.example.TicketBooking.Convertors.ShowEntryConverter;
+
+import com.example.TicketBooking.Convertors.ShowConvertors;
 import com.example.TicketBooking.Entities.*;
 import com.example.TicketBooking.EntryDtos.ShowEntryDto;
+import com.example.TicketBooking.Enums.SeatType;
 import com.example.TicketBooking.Repository.MovieRepository;
-import com.example.TicketBooking.Repository.TheatreRepository;
+import com.example.TicketBooking.Repository.ShowRepository;
+import com.example.TicketBooking.Repository.TheaterRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.LongSummaryStatistics;
 
 @Service
 public class ShowService {
 
     @Autowired
-    TheatreRepository theatreRepository;
-
-    @Autowired
     MovieRepository movieRepository;
 
-    public ResponseEntity addShow(ShowEntryDto showEntryDto) throws Exception {
-        ShowEntity showEntity = ShowEntryConverter.entryConverter(showEntryDto);
+    @Autowired
+    TheaterRepository theaterRepository;
 
-        boolean toCheckShowOverlap = toCheckShowOverlap(showEntryDto);
-        if (!toCheckShowOverlap) throw new Exception("Cannot enter show, conflict with other show!!");
+    @Autowired
+    ShowRepository showRepository;
 
-        TheatreEntity theatreEntity = theatreRepository.findById(showEntryDto.getTheatreId()).get();
-        theatreEntity.getShowEntityList().add(showEntity);
+    public String addShow(ShowEntryDto showEntryDto)
+    {
+        //1. Create a showEntity
+        ShowEntity showEntity = ShowConvertors.convertEntryToEntity(showEntryDto);
 
-        MovieEntity movie = movieRepository.findById(showEntryDto.getMovieId()).get();
+        int movieId = showEntryDto.getMovieId();
+        int theaterId = showEntryDto.getTheaterId();
 
-        showEntity.setMovieEntity(movie);
-        showEntity.setTheatreEntity(theatreEntity);
+        MovieEntity movieEntity = movieRepository.findById(movieId).get();
+        TheaterEntity theaterEntity = theaterRepository.findById(theaterId).get();
 
-        List<TheatreSeatEntity> theatreSeatEntityList = theatreEntity.getTheatreSeatEntityList();
-        List<ShowSeatEntity> showSeatEntityList = createShowSeats(theatreSeatEntityList, showEntity);
-        showEntity.setShowSeatEntityList(showSeatEntityList);
 
-        theatreRepository.save(theatreEntity);
-        return new ResponseEntity<>("Show added successfully", HttpStatus.CREATED);
+        //Setting the attribute of foreignKe
+        showEntity.setMovieEntity(movieEntity);
+        showEntity.setTheaterEntity(theaterEntity);
+
+        //Pending attributes the listOfShowSeatsEnity
+
+        List<ShowSeatEntity> seatEntityList = createShowSeatEntity(showEntryDto,showEntity);
+
+        showEntity.setListOfShowSeats(seatEntityList);
+
+
+        //Now we  also need to update the parent entities
+
+
+        showEntity = showRepository.save(showEntity);
+
+        movieEntity.getShowEntityList().add(showEntity);
+        theaterEntity.getShowEntityList().add(showEntity);
+
+
+        movieRepository.save(movieEntity);
+
+        theaterRepository.save(theaterEntity);
+
+        return "The show has been added successfully";
+
     }
-    private boolean toCheckShowOverlap(ShowEntryDto showEntity) {
-        LocalTime start = showEntity.getLocalTime();
-        LocalTime end = start.plusHours(3);
 
-        TheatreEntity theatreEntity = theatreRepository.findById(showEntity.getTheatreId()).get();
-        List<ShowEntity> listOfShows = theatreEntity.getShowEntityList();
-        if(listOfShows.isEmpty()) return true;
+    private List<ShowSeatEntity> createShowSeatEntity(ShowEntryDto showEntryDto,ShowEntity showEntity){
 
-        for(ShowEntity show : listOfShows) {
-            LocalTime newStart = show.getLocalTime();
-            LocalTime newEnd = newStart.plusHours(3);
-            if(newStart.isAfter(start) && newStart.isBefore(end) || newEnd.isAfter(start) && newEnd.isBefore(end))
-                return false;
+
+
+        //Now the goal is to create the ShowSeatEntity
+        //We need to set its attribute
+
+        TheaterEntity theaterEntity = showEntity.getTheaterEntity();
+
+        List<TheaterSeatEntity> theaterSeatEntityList = theaterEntity.getTheaterSeatEntityList();
+
+        List<ShowSeatEntity> seatEntityList = new ArrayList<>();
+
+        for(TheaterSeatEntity theaterSeatEntity : theaterSeatEntityList){
+
+            ShowSeatEntity showSeatEntity = new ShowSeatEntity();
+
+            showSeatEntity.setSeatNo(theaterSeatEntity.getSeatNo());
+            showSeatEntity.setSeatType(theaterSeatEntity.getSeatType());
+
+            if(theaterSeatEntity.getSeatType().equals(SeatType.CLASSIC))
+                showSeatEntity.setPrice(showEntryDto.getClassicSeatPrice());
+
+            else
+                showSeatEntity.setPrice(showEntryDto.getPremiumSeatPrice());
+
+            showSeatEntity.setBooked(false);
+            showSeatEntity.setShowEntity(showEntity); //parent : foreign key for the showSeat Entity
+
+            seatEntityList.add(showSeatEntity); //Adding it to the list
         }
 
-        return true;
-    }
+        return  seatEntityList;
 
-    private List<ShowSeatEntity> createShowSeats(List<TheatreSeatEntity> theatreSeatEntityList, ShowEntity show) {
-        List<ShowSeatEntity> showSeatEntityList = new ArrayList<>();
-
-        for(TheatreSeatEntity theatreSeatEntity : theatreSeatEntityList) {
-            ShowSeatEntity seat = ShowSeatEntity.builder().seatsNo(theatreSeatEntity.getSeatNo()).seatTypes(theatreSeatEntity.getSeatType()).theatreSeatEntity(theatreSeatEntity).seatPrice(show.getSeatPrice()).showEntity(show).isBooked(false).build();
-            showSeatEntityList.add(seat);
-        }
-
-        return showSeatEntityList;
     }
 }

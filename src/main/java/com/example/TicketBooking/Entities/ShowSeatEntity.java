@@ -1,38 +1,40 @@
 package com.example.TicketBooking.Entities;
 
-import com.example.TicketBooking.Enums.SeatTypes;
+
+import com.example.TicketBooking.Enums.SeatType;
 import jakarta.persistence.*;
+import jdk.jfr.Timestamp;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.util.Date;
 
 @Entity
+@Table(name="showseats")
 @Data
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "showseat")
+@AllArgsConstructor
 public class ShowSeatEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
+
     private boolean isBooked;
-    private int seatPrice;
-    private  String seatsNo;
+
+    private int price; //price of CLASSIC Seat for that particualr
+
+    private String seatNo;
+
     @Enumerated(value = EnumType.STRING)
-    private SeatTypes seatTypes;
-    @CreationTimestamp
+    private SeatType seatType;
+
     private Date bookedAt;
 
-    @JoinColumn
     @ManyToOne
-    TheatreSeatEntity theatreSeatEntity;
+    @JoinColumn
+    private ShowEntity showEntity;
 
-    @JoinColumn
-    @ManyToOne
-    ShowEntity showEntity;
 }
+

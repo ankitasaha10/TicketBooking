@@ -1,4 +1,5 @@
 package com.example.TicketBooking.Controller;
+
 import com.example.TicketBooking.EntryDtos.UserEntryDto;
 import com.example.TicketBooking.Service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,20 +11,24 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("user")
+@RequestMapping("/users")
 public class UserController {
+
     @Autowired
     UserService userService;
 
-    @PostMapping("addUser")
-    public ResponseEntity addUser(@RequestBody UserEntryDto userEntityDto) throws Exception {
-        try {
-            return new ResponseEntity<>(userService.addUser(userEntityDto), HttpStatus.CREATED);
-        } catch (Exception e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+    @PostMapping("/add")
+    public ResponseEntity<String> addUser(@RequestBody UserEntryDto userEntryDto){
+
+        try{
+            String response = userService.addUser(userEntryDto);
+            return new ResponseEntity<>(response, HttpStatus.CREATED);
+
+        }catch (Exception e){
+
+            String result = "User could not be added";
+            return new ResponseEntity<>(result,HttpStatus.BAD_REQUEST);
         }
 
     }
-
 }
-

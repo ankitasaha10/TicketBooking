@@ -1,27 +1,33 @@
 package com.example.TicketBooking.Entities;
 
-import com.example.TicketBooking.Enums.SeatTypes;
+
+import com.example.TicketBooking.Enums.SeatType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.*;
+
 @Entity
-@Table(name = "theatreSeat")
+@Table(name = "theater_seats")
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
-public class TheatreSeatEntity {
+@Builder
+@AllArgsConstructor
+public class TheaterSeatEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
+
     @Enumerated(value = EnumType.STRING)
-    private SeatTypes seatType;
+    private SeatType seatType;
 
     private String seatNo;
 
     @ManyToOne
     @JoinColumn
-    private TheatreEntity theatreEntity;
+    private TheaterEntity theaterEntity;
+
 }

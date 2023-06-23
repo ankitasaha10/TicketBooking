@@ -1,41 +1,47 @@
 package com.example.TicketBooking.Entities;
 
+
 import com.example.TicketBooking.Enums.Genre;
 import com.example.TicketBooking.Enums.Language;
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import jakarta.persistence.*;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@Table(name = "movies")
 @Data
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "movie")
+@NoArgsConstructor
 public class MovieEntity {
+
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+
+    @Column(unique = true,nullable = false)
     private String movieName;
 
-    @OneToMany(mappedBy = "movieEntity", cascade = CascadeType.ALL)
-    private List<ShowEntity> showEntityList;
+    private double ratings;
 
-    @JoinColumn
-    @ManyToOne
-    TheatreEntity theatreEntity;
+    private int duration;
 
     @Enumerated(value = EnumType.STRING)
     private Language language;
 
     @Enumerated(value = EnumType.STRING)
-
     private Genre genre;
 
-    private Double rating;
+    //this is parent wrt to shows
+    @OneToMany(mappedBy = "movieEntity",cascade = {CascadeType.MERGE, CascadeType.PERSIST})
+    private List<ShowEntity> showEntityList = new ArrayList<>();
 
-    private Double duration;
 
 }
+

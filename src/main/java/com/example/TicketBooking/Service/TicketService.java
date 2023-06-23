@@ -1,169 +1,169 @@
 package com.example.TicketBooking.Service;
 
+
+import com.example.TicketBooking.Convertors.TicketConvertors;
 import com.example.TicketBooking.Entities.ShowEntity;
 import com.example.TicketBooking.Entities.ShowSeatEntity;
 import com.example.TicketBooking.Entities.TicketEntity;
 import com.example.TicketBooking.Entities.UserEntity;
-import com.example.TicketBooking.EntryDtos.DeleteTicketEntryDto;
 import com.example.TicketBooking.EntryDtos.TicketEntryDto;
 import com.example.TicketBooking.Repository.ShowRepository;
 import com.example.TicketBooking.Repository.TicketRepository;
 import com.example.TicketBooking.Repository.UserRepository;
-import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.mail.javamail.*;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import jakarta.mail.internet.MimeMessage;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 public class TicketService {
 
-    @Autowired
-    ShowRepository showRepository;
-    @Autowired
-    UserRepository userRepository;
 
     @Autowired
     TicketRepository ticketRepository;
 
     @Autowired
+    ShowRepository showRepository;
+
+    @Autowired
+    UserRepository userRepository;
+
+    @Autowired
     JavaMailSender javaMailSender;
-    public ResponseEntity addTicket(TicketEntryDto ticketEntryDto) throws Exception{
-        TicketEntity ticketEntity = new TicketEntity();
+
+    public String addTicket(TicketEntryDto ticketEntryDto) throws Exception{
+
+
+        //1. Create TicketEntity from entryDto : Convert DTO ---> Entity
+        TicketEntity ticketEntity = TicketConvertors.convertEntryToEntity(ticketEntryDto);
+
+
+        //Validation : Check if the requested seats are available or not ?
+        boolean isValidRequest = checkValidityofRequestedSeats(ticketEntryDto);
+
+        if(isValidRequest==false){
+            throw new Exception("Requested seats are not available");
+        }
+
+        //We assume that the requestedSeats are valid
+
+
+        //Calculate the total amount :
         ShowEntity showEntity = showRepository.findById(ticketEntryDto.getShowId()).get();
+        List<ShowSeatEntity> seatEntityList = showEntity.getListOfShowSeats();
+        List<String> requestedSeats = ticketEntryDto.getRequestedSeats();
+
+        int totalAmount = 0;
+        for(ShowSeatEntity showSeatEntity:seatEntityList){
+
+            if(requestedSeats.contains(showSeatEntity.getSeatNo())){
+                totalAmount = totalAmount + showSeatEntity.getPrice();
+                showSeatEntity.setBooked(true);
+                showSeatEntity.setBookedAt(new Date());
+            }
+        }
+
+        ticketEntity.setTotalAmount(totalAmount);
+
+
+        //Setting the other attributes for the ticketEntity
         ticketEntity.setMovieName(showEntity.getMovieEntity().getMovieName());
+        ticketEntity.setShowDate(showEntity.getShowDate());
+        ticketEntity.setShowTime(showEntity.getShowTime());
+        ticketEntity.setTheaterName(showEntity.getTheaterEntity().getName());
 
-        List<String> seatToBeBook = ticketEntryDto.getSeatToBeBook();
-        int multiChecks = allocateSeats(seatToBeBook, showEntity);
-        if(multiChecks == 0) throw new Exception("You have entered non existing seat number !");
-        if(multiChecks == -1) throw new Exception("Some of the seats are already booked");
 
-        String bookedSeats = "";
-        for(String s : seatToBeBook) {
-            if(!bookedSeats.isEmpty()) bookedSeats += ',';
-            bookedSeats += s;
-        }
+        //We need to set that string that talked about requested Seats
+        String allotedSeats = getAllotedSeatsfromShowSeats(requestedSeats);
+        ticketEntity.setBookedSeats(allotedSeats);
 
-        ticketEntity.setBookedSeats(bookedSeats);
-        ticketEntity.setPrice(seatToBeBook.size() * showEntity.getSeatPrice());
-        ticketEntity.setShowDate(showEntity.getLocalDate());
-        ticketEntity.setShowTime(showEntity.getLocalTime());
-        ticketEntity.setTheatreName(showEntity.getTheatreEntity().getTheatreName());
 
-        showEntity.getTicketEntityList().add(ticketEntity);
+        //Setting the foreign key attributes
+        UserEntity userEntity = userRepository.findById(ticketEntryDto.getUserId()).get();
+
+        ticketEntity.setUserEntity(userEntity);
         ticketEntity.setShowEntity(showEntity);
 
-        UserEntity user = userRepository.findById(ticketEntryDto.getShowId()).get();
-        user.getBookedTicketList().add(ticketEntity);
-        ticketEntity.setUserEntity(user);
-        ticketEntity.setShowEntity(showEntity);
+        //Save the parent
+        ticketEntity = ticketRepository.save(ticketEntity);
 
-        ticketRepository.save(ticketEntity);
+
+        List<TicketEntity> ticketEntityList = showEntity.getListOfBookedTickets();
+        ticketEntityList.add(ticketEntity);
+        showEntity.setListOfBookedTickets(ticketEntityList);
+
         showRepository.save(showEntity);
-        userRepository.save(user);
 
 
+        List<TicketEntity> ticketEntityList1 = userEntity.getBookedTickets();
+        ticketEntityList1.add(ticketEntity);
+        userEntity.setBookedTickets(ticketEntityList1);
 
-        String body = "Hi "+user.getUserName()+"\n\nThis is to confirm your ticket bookings please refer below details so you don't miss the show !!"+"\n\nMovie Name -"+showEntity.getMovieEntity().getMovieName();
+        userRepository.save(userEntity);
 
-        String info = "\nTheatre Name -"+showEntity.getTheatreEntity().getTheatreName()+"\nBooked Seats - "+bookedSeats+"\nTicket Id - "+ticketEntity.getTicketId()+"\nShow Date - "+showEntity.getLocalDate()+"\nShow Time - "+showEntity.getLocalTime();
-        String greet = "\n\n Have a wonderful show !!  : - ) ";
 
-        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
+        String body = "Hi this is to confirm your booking for seat No "+allotedSeats +"for the movie : " + ticketEntity.getMovieName();
+
+
+        MimeMessage mimeMessage=javaMailSender.createMimeMessage();
         MimeMessageHelper mimeMessageHelper=new MimeMessageHelper(mimeMessage,true);
-        mimeMessageHelper.setFrom("krunalsolucky121@gmail.com");
-        mimeMessageHelper.setTo(user.getEmail());
-        mimeMessageHelper.setText(body + info + greet);
-        mimeMessageHelper.setSubject("Confirming your booked Ticket");
-
-        javaMailSender.send(mimeMessage);
-
-        return new ResponseEntity<>("Tickets booked successfully", HttpStatus.CREATED);
-    }
-    public int allocateSeats(List<String> seat, ShowEntity showEntity) {
-        List<ShowSeatEntity> showEntityList = showEntity.getShowSeatEntityList();
-        int count = 0;
-        for(ShowSeatEntity showSeatEntity : showEntityList) {
-            if(seat.contains(showSeatEntity.getSeatsNo())) {
-                if(showSeatEntity.isBooked()) return -1;
-                count ++;
-            }
-        }
-        if(count != seat.size()) return 0;
-
-        markSeatBooked(seat, showEntity);
-        return 1;
-    }
-
-    private void markSeatBooked(List<String> seat, ShowEntity showEntity) {
-        for(ShowSeatEntity currSeat : showEntity.getShowSeatEntityList()) {
-            if(seat.contains(currSeat.getSeatsNo())) {
-                currSeat.setBooked(true);
-            }
-        }
-    }
-
-    public ResponseEntity cancelTicket(DeleteTicketEntryDto deleteTicketEntryDto) throws Exception{
-        TicketEntity ticketEntity = ticketRepository.findById(deleteTicketEntryDto.getTicketId()).get();
-        List<ShowSeatEntity> showSeatEntityList = ticketEntity.getShowEntity().getShowSeatEntityList();
-        List<String> ticketsToBeDeleted = deleteTicketEntryDto.getDeleteTicketList();
-
-        String [] currTickets = ticketEntity.getBookedSeats().split(",");
-
-        int count = 0;
-        for(String ticketName : currTickets) if(ticketsToBeDeleted.contains(ticketName)) count ++;
-        if(count != ticketsToBeDeleted.size()) throw new Exception("Please check the names of tickets to be deleted. Invalid data found !");
-
-        HashSet<String> deletedTicketSet = new HashSet<>();
-        for(ShowSeatEntity seat : showSeatEntityList) {
-            if(ticketsToBeDeleted.contains(seat.getSeatsNo())) {
-                seat.setBooked(false);
-                deletedTicketSet.add(seat.getSeatsNo());
-            }
-        }
-
-        String newBookedTickets = "";
-        for(String tick : currTickets) {
-            if(!deletedTicketSet.contains(tick)) {
-                if(!newBookedTickets.isEmpty()) newBookedTickets += ',';
-                newBookedTickets += tick;
-            }
-        }
-
-        Iterator it = deletedTicketSet.iterator();
-        String newTics = "";
-        while(it.hasNext()) {
-            newTics += it.next();
-        }
-
-        int toBeDeleted = deletedTicketSet.size() * 200;
-        ticketEntity.setPrice(ticketEntity.getPrice() - toBeDeleted);
-
-        UserEntity user = ticketEntity.getUserEntity();
-        String body = "Hi "+user.getUserName()+"\n\nThis is to confirm your booking cancellation."+"\nTicket id - "+ticketEntity.getTicketId()+"\nCancelled Seats - "+newTics+"\nAmount of rupees - "+toBeDeleted+" will be refunded in to your account in 6-7 working days\n\n\n"+"Have a wonderful day !";
-
-        MimeMessage mimeMessage = javaMailSender.createMimeMessage();
-        MimeMessageHelper mimeMessageHelper=new MimeMessageHelper(mimeMessage,true);
-        mimeMessageHelper.setFrom("krunalsolucky121@gmail.com");
-        mimeMessageHelper.setTo(user.getEmail());
+        mimeMessageHelper.setFrom("backeendacciojob@gmail.com");
+        mimeMessageHelper.setTo(userEntity.getEmail());
         mimeMessageHelper.setText(body);
         mimeMessageHelper.setSubject("Confirming your booked Ticket");
 
         javaMailSender.send(mimeMessage);
 
 
-        if(newBookedTickets.isEmpty())  {
-            ticketRepository.delete(ticketEntity);
-            userRepository.save(user);
-            return new ResponseEntity<>("Tickets has been successfully cancelled !", HttpStatus.OK);
+        return "Ticket has successfully been added";
+
+    }
+
+    private String getAllotedSeatsfromShowSeats(List<String> requestedSeats){
+
+        String result = "";
+
+        for(String seat :requestedSeats){
+
+            result = result + seat +", ";
+
         }
+        return result;
 
-        ticketEntity.setBookedSeats(newBookedTickets);
-        userRepository.save(ticketEntity.getUserEntity());
+    }
 
-        return new ResponseEntity<>("Tickets has been successfully cancelled !", HttpStatus.OK);
+
+    private boolean checkValidityofRequestedSeats(TicketEntryDto ticketEntryDto){
+
+        int showId = ticketEntryDto.getShowId();
+
+        List<String> requestedSeats = ticketEntryDto.getRequestedSeats();
+
+        ShowEntity showEntity = showRepository.findById(showId).get();
+
+        List<ShowSeatEntity> listOfSeats = showEntity.getListOfShowSeats();
+
+        //Iterating over the list Of Seats for that particular show
+        for(ShowSeatEntity showSeatEntity : listOfSeats){
+
+            String seatNo = showSeatEntity.getSeatNo();
+
+            if(requestedSeats.contains(seatNo)){
+
+                if(showSeatEntity.isBooked()==true){
+                    return false; //Since this seat cant be occupied : returning false
+                }
+            }
+        }
+        //All the seats requested were available
+        return true;
+
     }
 }
+
