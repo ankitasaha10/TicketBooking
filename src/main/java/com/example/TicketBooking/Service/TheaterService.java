@@ -4,6 +4,8 @@ package com.example.TicketBooking.Service;
 
 
 import com.example.TicketBooking.Convertors.TheaterConvertors;
+import com.example.TicketBooking.Entities.MovieEntity;
+import com.example.TicketBooking.Entities.ShowEntity;
 import com.example.TicketBooking.Entities.TheaterEntity;
 import com.example.TicketBooking.Entities.TheaterSeatEntity;
 import com.example.TicketBooking.EntryDtos.TheaterEntryDto;
@@ -15,12 +17,14 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class TheaterService {
 
     @Autowired
     TheaterSeatRepository theaterSeatRepository;
+
 
 
     @Autowired
@@ -74,6 +78,24 @@ public class TheaterService {
         //Not saving the child here
         return theaterSeatEntityList;
 
+    }
+    public List<String> getMovieInTheatre(int id){
+        List<String> allMovies= new ArrayList<>();
+        Optional<TheaterEntity> theaterEntity= theaterRepository.findById(id);
+        if(theaterEntity.isPresent()){
+            TheaterEntity theaterEntity1=theaterEntity.get();
+
+       for(ShowEntity show: theaterEntity1.getShowEntityList()){
+          MovieEntity movieEntities=show.getMovieEntity();
+          allMovies.add(movieEntities.getMovieName());
+       }
+        }
+//         List<ShowEntity> list=theaterEntity.getShowEntityList();
+//       for(ShowEntity show: list){
+//          MovieEntity movieEntities=show.getMovieEntity();
+//          allMovies.add(movieEntities.getMovieName());
+//       }
+       return allMovies;
     }
 }
 
